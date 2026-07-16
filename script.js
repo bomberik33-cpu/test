@@ -213,6 +213,21 @@
     return Array.from(found.values());
   }
 
+  // Sprawdza, czy dany obiekt "faction" z meczu to NASZA druzyna.
+  // WAZNE: w lidze ESEA/FACEIT League mecze czesto uzywaja INNEGO id druzyny
+  // (leagueTeamId) niz glówne ID klubowe (faceitTeamId) — dlatego porównujemy
+  // do OBU id, a dodatkowo (najbardziej niezawodnie) do nazwy druzyny.
+  function isOurTeam(t) {
+    if (!t) return false;
+    const teamId = cfg.team.faceitTeamId;
+    const leagueTeamId = cfg.league && cfg.league.leagueTeamId;
+    const teamName = (cfg.team.name || "").trim().toLowerCase();
+    if (teamId && (t.faction_id === teamId || t.team_id === teamId)) return true;
+    if (leagueTeamId && (t.faction_id === leagueTeamId || t.team_id === leagueTeamId)) return true;
+    if (teamName && t.name && t.name.trim().toLowerCase() === teamName) return true;
+    return false;
+  }
+
   async function loadMatches() {
     const upcomingEl = $("#upcomingList");
     const resultsEl = $("#resultsList");
@@ -232,38 +247,56 @@
       return;
     }
 
+    const manualIds = new Set(cfg.manualCompetitionIds || []);
     const allMatches = [];
     for (const comp of competitions) {
       for (const kind of ["championships", "tournaments"]) {
         try {
           const data = await apiGet(`/${kind}/${comp.id}/matches?type=all&limit=50`);
-          (data.items || []).forEach((m) => allMatches.push(m));
+          (data.items || []).forEach((m) =>
+            allMatches.push({
+              ...m,
+              // Oznaczamy, z jakiej rozgrywki pochodzi mecz i czy to ta z
+              // manualCompetitionIds (u Ciebie: dywizja ESEA League).
+              __sourceCompetitionId: comp.id,
+              __isLeagueMatch: manualIds.has(comp.id),
+            })
+          );
         } catch {
           /* ta sciezka moze nie pasowac do danego ID — próbujemy dalej */
         }
       }
     }
 
-    const teamId = cfg.team.faceitTeamId;
     const ourMatches = dedupeById(allMatches).filter((m) => {
       const teams = m.teams || {};
-      return Object.values(teams).some((t) => t.faction_id === teamId || t.team_id === teamId);
+      return Object.values(teams).some(isOurTeam);
     });
 
     const now = Date.now() / 1000;
+    const live = ourMatches.filter((m) => m.status === "ONGOING" || m.status === "LIVE");
     const upcoming = ourMatches
-      .filter((m) => (m.scheduled_at || 0) >= now || m.status === "SCHEDULED" || m.status === "UPCOMING" || m.status === "READY")
+      .filter(
+        (m) =>
+          m.status !== "ONGOING" &&
+          m.status !== "LIVE" &&
+          m.status !== "FINISHED" &&
+          m.status !== "CANCELLED" &&
+          m.status !== "ABORTED" &&
+          ((m.scheduled_at || 0) >= now ||
+            ["SCHEDULED", "UPCOMING", "READY", "CONFIGURING", "VOTING"].includes(m.status))
+      )
       .sort((a, b) => (a.scheduled_at || 0) - (b.scheduled_at || 0));
     const past = ourMatches
       .filter((m) => m.status === "FINISHED" || (m.finished_at && m.finished_at > 0))
       .sort((a, b) => (b.finished_at || b.scheduled_at || 0) - (a.finished_at || a.scheduled_at || 0));
 
-    state.upcoming = upcoming;
+    state.upcoming = [...live, ...upcoming];
     state.past = past;
 
-    renderUpcoming(upcoming, teamId);
-    renderResults(past, teamId);
-    renderHeroNextMatch(upcoming[0]);
+    renderUpcoming(state.upcoming);
+    renderResults(past);
+    renderHeroNextMatch(live[0] || upcoming[0]);
   }
 
   function dedupeById(matches) {
@@ -272,14 +305,14 @@
     return Array.from(map.values());
   }
 
-  function opponentOf(match, teamId) {
+  function opponentOf(match) {
     const teams = match.teams || {};
     const entries = Object.values(teams);
-    const opp = entries.find((t) => t.faction_id !== teamId && t.team_id !== teamId) || entries[1] || entries[0];
+    const opp = entries.find((t) => !isOurTeam(t)) || entries[1] || entries[0];
     return opp || { name: "Przeciwnik" };
   }
 
-  function renderUpcoming(list, teamId) {
+  function renderUpcoming(list) {
     const el = $("#upcomingList");
     if (!list.length) {
       setStatus(el, "Brak zaplanowanych meczów w tej chwili.", "empty");
@@ -288,27 +321,31 @@
     el.innerHTML = list
       .slice(0, 8)
       .map((m) => {
-        const opp = opponentOf(m, teamId);
+        const opp = opponentOf(m);
+        const isLive = m.status === "ONGOING" || m.status === "LIVE";
+        const sourceTag = m.__isLeagueMatch ? "ESEA LIGA" : (m.competition_name || "Turniej");
         const matchUrl = m.faceit_url ? m.faceit_url.replace("{lang}", "pl") : cfg.team.faceitLeaguesUrl;
         return `
-        <li class="match-row">
+        <li class="match-row ${isLive ? "match-row--live" : ""}">
           <a class="match-row__link" href="${matchUrl}" target="_blank" rel="noopener" aria-label="Zobacz mecz SZPONT vs ${opp.name || "Przeciwnik"}"></a>
           <div class="match-row__date">
-            <span class="match-row__day">${fmtTimestampShort(m.scheduled_at)}</span>
-            <span class="match-row__time">${fmtTimestamp(m.scheduled_at).split(", ").pop()}</span>
+            ${isLive
+              ? `<span class="badge badge--live">NA ZYWO</span>`
+              : `<span class="match-row__day">${fmtTimestampShort(m.scheduled_at)}</span>
+                 <span class="match-row__time">${fmtTimestamp(m.scheduled_at).split(", ").pop()}</span>`}
           </div>
           <div class="match-row__vs">
             <span class="match-row__label">SZPONT</span>
             <span class="match-row__sep">vs</span>
             <span class="match-row__label">${opp.name || "Przeciwnik"}</span>
           </div>
-          <div class="match-row__comp">${m.competition_name || "Mecz ligowy"}</div>
+          <div class="match-row__comp">${sourceTag}</div>
         </li>`;
       })
       .join("");
   }
 
-  function renderResults(list, teamId) {
+  function renderResults(list) {
     const el = $("#resultsList");
     if (!list.length) {
       setStatus(el, "Brak rozegranych meczów do pokazania.", "empty");
@@ -317,11 +354,12 @@
     el.innerHTML = list
       .slice(0, 8)
       .map((m) => {
-        const opp = opponentOf(m, teamId);
+        const opp = opponentOf(m);
         const score = m.results && m.results.score ? Object.values(m.results.score).join(" : ") : "—";
         const winnerFaction = m.results ? m.results.winner : null;
-        const ourEntry = Object.entries(m.teams || {}).find(([, t]) => t.faction_id === teamId || t.team_id === teamId);
+        const ourEntry = Object.entries(m.teams || {}).find(([, t]) => isOurTeam(t));
         const won = ourEntry && winnerFaction === ourEntry[0];
+        const sourceTag = m.__isLeagueMatch ? "ESEA LIGA" : (m.competition_name || "Turniej");
         const matchUrl = m.faceit_url ? m.faceit_url.replace("{lang}", "pl") : cfg.team.faceitLeaguesUrl;
         return `
         <li class="match-row match-row--result">
@@ -332,7 +370,7 @@
             <span class="match-row__score">${score}</span>
             <span class="match-row__label">${opp.name || "Przeciwnik"}</span>
           </div>
-          <div class="match-row__comp">${m.competition_name || "Mecz ligowy"} · ${fmtTimestampShort(m.finished_at || m.scheduled_at)}</div>
+          <div class="match-row__comp">${sourceTag} · ${fmtTimestampShort(m.finished_at || m.scheduled_at)}</div>
         </li>`;
       })
       .join("");
@@ -349,12 +387,25 @@
       box.innerHTML = `<p class="hero-match__empty">Brak zaplanowanego meczu — sprawdz lige na FACEIT.</p>`;
       return;
     }
-    const teamId = cfg.team.faceitTeamId;
-    const opp = opponentOf(match, teamId);
+    const opp = opponentOf(match);
+    const isLive = match.status === "ONGOING" || match.status === "LIVE";
+    const sourceTag = match.__isLeagueMatch ? "ESEA LIGA" : (match.competition_name || "Mecz ligowy");
+
+    if (isLive) {
+      box.innerHTML = `
+        <span class="hero-match__eyebrow">Mecz w trakcie</span>
+        <div class="hero-match__vs">SZPONT <span>vs</span> ${opp.name || "Przeciwnik"}</div>
+        <div class="hero-match__meta">${sourceTag}</div>
+        <div class="hero-match__countdown">TRWA TERAZ</div>
+      `;
+      if (countdownTimer) clearInterval(countdownTimer);
+      return;
+    }
+
     box.innerHTML = `
       <span class="hero-match__eyebrow">Najblizszy mecz</span>
       <div class="hero-match__vs">SZPONT <span>vs</span> ${opp.name || "Przeciwnik"}</div>
-      <div class="hero-match__meta">${match.competition_name || "Mecz ligowy"} · ${fmtTimestamp(match.scheduled_at)}</div>
+      <div class="hero-match__meta">${sourceTag} · ${fmtTimestamp(match.scheduled_at)}</div>
       <div class="hero-match__countdown" id="countdown">--:--:--:--</div>
     `;
 
@@ -396,14 +447,18 @@
       stats.push({ label: "Srednie ELO skladu", value: avg });
     }
 
-    // Bilans W-L z pobranych wyników
-    if (state.past.length) {
-      const teamId = cfg.team.faceitTeamId;
-      const wins = state.past.filter((m) => {
-        const ourEntry = Object.entries(m.teams || {}).find(([, t]) => t.faction_id === teamId || t.team_id === teamId);
+    // Bilans W-L w lidze ESEA — liczony NAPRAWDE z rozegranych meczów w
+    // rozgrywce podanej w manualCompetitionIds (Twoja dywizja ESEA League),
+    // a nie z domyslnego API pozycji/punktów (ono wymaga league.leagueId/
+    // seasonId i czesto sie spóznia). Dziala automatycznie po kazdym meczu.
+    const leagueMatches = state.past.filter((m) => m.__isLeagueMatch);
+    if (leagueMatches.length) {
+      const wins = leagueMatches.filter((m) => {
+        const ourEntry = Object.entries(m.teams || {}).find(([, t]) => isOurTeam(t));
         return ourEntry && m.results && m.results.winner === ourEntry[0];
       }).length;
-      stats.push({ label: "Bilans (ostatnie mecze)", value: `${wins}W – ${state.past.length - wins}L` });
+      const losses = leagueMatches.length - wins;
+      stats.push({ label: "Bilans w lidze ESEA", value: `${wins}W – ${losses}L` });
     }
 
     // Pozycja/punkty w lidze (ESEA) — wymaga leagueId + seasonId w config.js.
