@@ -8,96 +8,67 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@500;600;700&family=Manrope:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <a class="skip-link" href="#glowna-tresc">Przejdz do tresci</a>
 
-<header class="nav">
-  <div class="wrap">
-    <a href="#gora" class="nav__brand">SZPONT</a>
-    <nav class="nav__links" aria-label="Nawigacja glówna">
-      <a href="#sklad">Sklad</a>
-      <a href="#mecze">Mecze</a>
-      <a href="#wyniki">Wyniki</a>
-      <a href="#liga">Liga</a>
-    </nav>
-    <div class="nav__right">
-      <div class="nav__socials" data-team-socials></div>
-    </div>
-  </div>
+<header class="topbar" id="gora">
 </header>
 
 <main id="glowna-tresc">
 
   <!-- ============================== HERO ============================== -->
-  <section class="hero" id="gora">
-    <div class="wrap hero__inner">
-      <span class="eyebrow">Druzyna Counter-Strike 2 · FACEIT</span>
-      <h1 class="hero__title">PROJECT<br><span class="accentline">SZPONT</span></h1>
-      <p class="hero__tagline" data-team-tagline>Sklad, mecze i wyniki — aktualizowane same, prosto z FACEIT.</p>
-
-      <div class="hero__actions">
-        <a class="btn btn--accent" href="#mecze">Najblizszy mecz</a>
-        <a class="btn btn--ghost" data-faceit-url target="_blank" rel="noopener">Profil na FACEIT</a>
-      </div>
-
-      <div class="hero-match" id="heroNextMatch">
-        <p class="hero-match__empty">Wczytywanie najblizszego meczu…</p>
-      </div>
-    </div>
+  <section class="intro">
+    <div class="row">
+      <div class="title-row">
+        <h1 class="headline">PROJECT SZPONT</h1>
   </section>
 
   <!-- ============================== SKLAD ============================== -->
-  <section class="section" id="sklad">
-    <div class="wrap">
-      <div class="section__head">
-        <span class="eyebrow">01 — Zawodnicy</span>
-        <h2 class="section__title">Sklad druzyny</h2>
-      </div>
-      <div class="roster-grid" id="rosterGrid">
-        <p class="status">Wczytywanie skladu…</p>
+  <section class="block block--tight" id="sklad">
+    <div class="row">
+      <div class="roster" id="rosterGrid">
+        <p class="loading">Wczytywanie skladu…</p>
       </div>
     </div>
   </section>
 
-  <!-- ============================== MECZE ============================== -->
-  <section class="section" id="mecze">
-    <div class="wrap">
-      <div class="section__head">
-        <span class="eyebrow">02 — Terminarz</span>
-        <h2 class="section__title">Najblizsze mecze</h2>
+  <!-- ============================== PASEK: NAJBLIZSZY MECZ + LIGA ============================== -->
+  <section class="block block--tight" id="liga">
+    <div class="row dash">
+      <div class="dash-figures" id="leagueStats">
+        <p class="loading">Wczytywanie statystyk…</p>
       </div>
-      <ul class="match-list" id="upcomingList">
-        <li class="status">Wczytywanie terminarza…</li>
-      </ul>
+      <div class="next-match" id="heroNextMatch">
+        <p class="loading">Wczytywanie najblizszego meczu…</p>
+      </div>
     </div>
   </section>
 
-  <!-- ============================== WYNIKI ============================== -->
-  <section class="section" id="wyniki">
-    <div class="wrap">
-      <div class="section__head">
-        <span class="eyebrow">03 — Historia</span>
-        <h2 class="section__title">Ostatnie wyniki</h2>
+  <!-- ============================== MECZE + WYNIKI (obok siebie) ============================== -->
+  <section class="block" id="mecze-wyniki">
+    <div class="row games-split">
+      <div class="games-col" id="mecze">
+        <div class="block-head block-head--sub">
+          <span class="num">01</span>
+          <h2 class="block-title">Najblizsze mecze</h2>
+        </div>
+        <ul class="games" id="upcomingList">
+          <li class="loading">Wczytywanie terminarza…</li>
+        </ul>
       </div>
-      <ul class="match-list" id="resultsList">
-        <li class="status">Wczytywanie wyników…</li>
-      </ul>
-    </div>
-  </section>
 
-  <!-- ============================== LIGA / BILANS ============================== -->
-  <section class="section" id="liga">
-    <div class="wrap">
-      <div class="section__head">
-        <span class="eyebrow">04 — Rozgrywki</span>
-        <h2 class="section__title">Liga i bilans</h2>
-      </div>
-      <div class="stats-grid" id="leagueStats">
-        <p class="status">Wczytywanie statystyk…</p>
+      <div class="games-col" id="wyniki">
+        <div class="block-head block-head--sub">
+          <span class="num">02</span>
+          <h2 class="block-title">Ostatnie wyniki</h2>
+        </div>
+        <ul class="games" id="resultsList">
+          <li class="loading">Wczytywanie wyników…</li>
+        </ul>
       </div>
     </div>
   </section>
@@ -105,17 +76,13 @@
 </main>
 
 <!-- ============================== STOPKA ============================== -->
-<footer class="footer" id="kontakt">
-  <div class="wrap">
-    <div class="footer__top">
-      <span class="footer__brand">SZPONT</span>
-      <div class="footer__socials" data-team-socials></div>
-    </div>
-    <div class="footer__meta">
-      <span>© <span id="rok"></span> Project Szpont</span>
-      <span data-contact-email-wrap>Kontakt: <a data-contact-email href="#">—</a></span>
-      <span>Aktualizacja: <span data-last-updated>—</span></span>
-    </div>
+<footer class="foot" id="kontakt">
+  <div class="row foot-row">
+    <span class="foot-mark">Project Szpont</span>
+    <div class="foot-social" data-team-socials></div>
+    <span class="foot-meta">© <span id="rok"></span></span>
+    <span class="foot-meta" data-contact-email-wrap>Kontakt: <a data-contact-email href="#">—</a></span>
+    <span class="foot-meta">Aktualizacja: <span data-last-updated>—</span></span>
   </div>
 </footer>
 
