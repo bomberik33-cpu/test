@@ -271,6 +271,14 @@ button { font: inherit; }
 .badge--ghost { border-color: var(--line); color: var(--text-dim); }
 .badge--win { border-color: var(--win); color: var(--win); background: rgba(47, 230, 184, 0.08); }
 .badge--loss { border-color: var(--loss); color: var(--loss); background: rgba(255, 84, 104, 0.08); }
+.badge--live {
+  border-color: var(--loss);
+  color: var(--loss);
+  background: rgba(255, 84, 104, 0.12);
+  animation: liveBlink 1.4s ease-in-out infinite;
+}
+.match-row--live { box-shadow: inset 0 0 0 1px var(--loss), 0 0 0 1px rgba(255, 84, 104, 0.25); }
+@keyframes liveBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 
 /* ---------- Mecze / wyniki ------------------------------------------------- */
 .match-list {
